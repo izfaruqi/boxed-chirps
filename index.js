@@ -100,7 +100,15 @@ async function main() {
       if (tweet.extended_entities.media.length > 0) {
         return tweet.extended_entities.media.map(media => {
           if (media.type == 'video') { // Video
-            return { id: media.id_str, url: media.video_info.variants[media.video_info.variants.length - 1].url }
+            let largestBitrate = 0
+            let laregestBitrateUrl = ""
+            for(mediaWithBitrate of media.video_info.variants){
+              if(mediaWithBitrate.bitrate && mediaWithBitrate.bitrate >= largestBitrate){
+                largestBitrate = mediaWithBitrate.bitrate
+                laregestBitrateUrl = mediaWithBitrate.url
+              }
+            }
+            return { id: media.id_str, url: laregestBitrateUrl }
           } else { // Photo
             return { id: media.id_str, url: media.media_url + '?name=orig' }
           }
@@ -139,6 +147,7 @@ async function main() {
     })))
   }
   console.log('media downloaded')
+
   await browser.close()
 }
 
