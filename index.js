@@ -28,52 +28,60 @@ async function main() {
   console.log("found parent tweet")
 
   const upperTweets = await page.$$('article > div > div > div > div:last-child > div:last-child > div:first-child > div > div > div:first-child > a:last-child')
-  const upperTweetIds = await Promise.all(upperTweets.map(async article => (await (await article.getProperty('href')).jsonValue()).split('/')[5]))
+  const upperTweetLinks = await Promise.all(upperTweets.map(async article => (await (await article.getProperty('href')).jsonValue())))
+  
+  let upperLimitIdx = -1
+  upperTweetLinks.forEach((link, i) => (!link.startsWith('https://twitter.com/' + username) && upperLimitIdx == -1)? upperLimitIdx = i : null)
+  const upperTweetIds = upperTweetLinks.filter((_, i) => !(upperLimitIdx != -1 && i >= upperLimitIdx)).map(link => link.split('/')[5])
 
   tweetIds.push(splitParentUrl[5])
   tweetIds.push(...upperTweetIds)
 
-  const grabLowerTweetIds = (debug = false) => new Promise(async resolve => {
-    let tweetIds = []
-
-    const finish = async () => {
-      await page.evaluate(() => {
-        clearInterval(window.threadScroller)
-        window.threadRefreshObserver.disconnect()
-      })
-      if (debug) console.log('scroller stopped')
-      tweetIds = _.uniq(tweetIds).map(link => link.split('/')[3]).sort()
-      resolve(tweetIds)
-    }
-
-    await page.exposeFunction('sendLinkToScrolledThread', async link => {
-      if (!link.startsWith('/' + username)) {
-        if (debug) console.log('tweet from different username found: ' + link)
-        await finish()
-      } else {
-        if (debug) console.log(link)
-        tweetIds.push(link)
+  // If the upper tweets haven't encountered a thread-breaking filter and is not a single tweet, continue grabbing the lower tweets.
+  if(upperLimitIdx == -1 && upperTweetIds.length != 0){
+    const grabLowerTweetIds = (debug = false) => new Promise(async resolve => {
+      let tweetIds = []
+  
+      const finish = async () => {
+        await page.evaluate(() => {
+          clearInterval(window.threadScroller)
+          window.threadRefreshObserver.disconnect()
+        })
+        await new Promise(res => setTimeout(res, 500)) // Wait for all link appends to finish.
+        if (debug) console.log('scroller stopped')
+        tweetIds = _.uniq(tweetIds).map(link => link.split('/')[3]).sort()
+        resolve(tweetIds)
       }
-    })
-
-    await page.evaluate(() => {
-      const threadContainer = document.querySelector('section > div > div')
-      window.threadRefreshObserver = new MutationObserver(muts => {
-        for (const mut of muts) {
-          if (mut.addedNodes.length >= 1) {
-            sendLinkToScrolledThread(mut.addedNodes[0].querySelector('article > div > div > div > div:last-child > div:last-child > div:first-child > div > div > div:first-child > a:last-child').getAttribute('href'))
-          }
+  
+      await page.exposeFunction('sendLinkToScrolledThread', async link => {
+        if (!link.startsWith('/' + username)) {
+          if (debug) console.log('tweet from different username found: ' + link)
+          await finish()
+        } else {
+          if (debug) console.log(link)
+          tweetIds.push(link)
         }
       })
-      window.threadRefreshObserver.observe(threadContainer, { childList: true })
-
-      window.threadScroller = setInterval(() => {
-        document.scrollingElement.scrollBy(0, 75);
-      }, 100)
+  
+      await page.evaluate(() => {
+        const threadContainer = document.querySelector('section > div > div')
+        window.threadRefreshObserver = new MutationObserver(muts => {
+          for (const mut of muts) {
+            if (mut.addedNodes.length >= 1) {
+              sendLinkToScrolledThread(mut.addedNodes[0].querySelector('article > div > div > div > div:last-child > div:last-child > div:first-child > div > div > div:first-child > a:last-child').getAttribute('href'))
+            }
+          }
+        })
+        window.threadRefreshObserver.observe(threadContainer, { childList: true })
+  
+        window.threadScroller = setInterval(() => {
+          document.scrollingElement.scrollBy(0, 75);
+        }, 100)
+      })
     })
-  })
+    tweetIds.push(...(await grabLowerTweetIds(true)))
+  }
 
-  tweetIds.push(...(await grabLowerTweetIds(true)))
   console.log(tweetIds)
   meta.scrape_ids_stop = Date.now()
 
