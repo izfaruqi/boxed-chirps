@@ -86,7 +86,7 @@ async function main() {
     }
 
     return _.merge(...(await Promise.allSettled(tweetIdsChunks.map(tweetIdChunks =>
-      axios.get('https://api.twitter.com/1.1/statuses/lookup.json?id=' + encodeURIComponent(tweetIdChunks.join(',')) + "&map=true&include_ext_alt_text=true",
+      axios.get('https://api.twitter.com/1.1/statuses/lookup.json?id=' + encodeURIComponent(tweetIdChunks.join(',')) + "&tweet_mode=extended&map=true&include_ext_alt_text=true",
         { headers: { 'Authorization': 'Bearer ' + config.twitterApiToken } }).then(res => res.data.id)
     ))).map(promise => promise.status == 'fulfilled' ? promise.value : null).flat())
   }
