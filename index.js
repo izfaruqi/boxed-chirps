@@ -89,7 +89,7 @@ async function main() {
     if (debug) console.log('fetching tweet data from api')
 
     let tweetIdsChunks = [tweetIds]
-    if (tweetIds.length > 5) {
+    if (tweetIds.length > 95) {
       tweetIdsChunks = _.chunk(tweetIds, 5)
     }
 
