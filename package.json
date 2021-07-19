@@ -12,6 +12,7 @@
   "license": "GPL-3.0-only",
   "dependencies": {
     "axios": "^0.21.1",
+    "bluebird": "^3.7.2",
     "lodash": "^4.17.21",
     "puppeteer-core": "^10.1.0"
   }

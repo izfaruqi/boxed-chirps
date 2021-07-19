@@ -4,6 +4,7 @@ const fs = require('fs').promises
 const fsSync = require('fs')
 const _ = require('lodash')
 const axios = require('axios').default
+const Promise = require('bluebird')
 
 async function main() {
   let tweetIds = []
@@ -17,8 +18,11 @@ async function main() {
   const splitParentUrl = parentUrl.split('/')
   const username = splitParentUrl[3]
   meta.url = parentUrl
+  meta.user = {
+    screen_name: username
+  }
 
-  const browser = await puppeteer.launch({ executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", userDataDir: './puppeteer-userdata', headless: true })
+  const browser = await puppeteer.launch({ executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", userDataDir: './puppeteer-userdata', headless: false })
   const page = await browser.newPage()
   page.setViewport({ width: 800, height: 850 })
   page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
@@ -94,7 +98,7 @@ async function main() {
     }
 
     return _.merge(...(await Promise.allSettled(tweetIdsChunks.map(tweetIdChunks =>
-      axios.get('https://api.twitter.com/1.1/statuses/lookup.json?id=' + encodeURIComponent(tweetIdChunks.join(',')) + "&tweet_mode=extended&map=true&include_ext_alt_text=true",
+      axios.get('https://api.twitter.com/1.1/statuses/lookup.json?id=' + encodeURIComponent(tweetIdChunks.join(',')) + "&tweet_mode=extended&map=true&include_ext_alt_text=true&trim_user=true",
         { headers: { 'Authorization': 'Bearer ' + config.twitterApiToken } }).then(res => res.data.id)
     ))).map(promise => promise.status == 'fulfilled' ? promise.value : null).flat())
   }
@@ -144,7 +148,7 @@ async function main() {
   console.log('downloading media')
   if (mediaUrls.length > 0) {
     fs.mkdir('output/' + outputFileName + '/media')
-    await Promise.allSettled(mediaUrls.map(media => axios.get(media.url, { responseType: 'stream' }).then(res => {
+    await Promise.map(mediaUrls, media => axios.get(media.url, { responseType: 'stream' }).then(res => {
       const urlSplit = (new URL(media.url)).pathname.split('/')
       const savePath = 'output/' + outputFileName + '/media/' + media.id + '-' + urlSplit[urlSplit.length - 1]
       res.data.pipe(fsSync.createWriteStream(savePath))
@@ -152,7 +156,7 @@ async function main() {
         res.data.on('end', res)
         res.data.on('error', rej)
       })
-    })))
+    }), { concurrency: 5 })
   }
   console.log('media downloaded')
 
