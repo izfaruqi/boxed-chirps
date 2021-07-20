@@ -16,6 +16,7 @@ async function main() {
     return
   }
   const splitParentUrl = parentUrl.split('/')
+  splitParentUrl[5] = splitParentUrl[5].match(/[0-9]+/gm)[0]
   const username = splitParentUrl[3]
   meta.url = parentUrl
 
