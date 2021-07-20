@@ -1,0 +1,50 @@
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Boxed Chirps: <%= user.handle %></title>
+    <%- css %>
+  </head>
+  <body>
+    <div class="mx-auto w-11/12 sm:w-9/12 md:w-8/12 lg:w-7/12 xl:w-5/12 2xl:w-4/12 my-2">
+      <div class="pb-2 border-b-2 border-black flex items-baseline justify-between">
+        <div>
+          <span class="text-xl font-bold"><%= user.name %></span>
+          <span class="mx-1">&mdash;</span>
+          <a href="https://twitter.com/@<%= user.handle %>" rel="noreferrer noopener" target="_blank">@<%= user.handle %></a>
+          <span class="font-mono text-xs">#<%= user.id %></span>
+        </div>
+        <span>&#x1F389;: <%= user.created_at %></span>
+      </div>
+      <div class="mt-5 flex flex-col gap-3 items-stretch">
+        <% tweets.forEach(tweet => {
+          if(tweet.is_available){
+              let content = tweet.content.substring(tweet.display_text_range[0], tweet.display_text_range[1]).split('') 
+              tweet.mentions.forEach(mention => content.splice(mention.indices[0], mention.indices[1]-mention.indices[0], 
+                '<a class="text-blue-500" href="https://twitter.com/@' + mention.screen_name + '" rel="noreferrer noopener" target="_blank">@' + mention.screen_name + '</a>'))
+              content = content.join('') %>
+            <div>
+              <div class="flex justify-between items-baseline">
+                <a href="https://twitter.com/@<%= user.handle %>/status/<%= tweet.id %>" rel="noreferrer noopener" target="_blank"><span class="text-xs">#<%= tweet.id %></span></a>
+                <span class="text-sm"><%= tweet.date %></span>
+              </div>
+              <% content.split('\n').map(content => { %>
+                <% if(content == '') { %>
+                  <p>&nbsp;</p>
+                <% } else { %>
+                  <p><%- content %></p>
+                <% } %>
+              <% }) %>
+            </div>
+          <% } else { %>
+            <div>
+              <div class="flex justify-between items-baseline">
+                <a href="https://twitter.com/@<%= user.handle %>/status/<%= tweet.id %>" rel="noreferrer noopener" target="_blank"><span class="text-xs">#<%= tweet.id %></span></a>
+              </div>
+              <p class="italic font-light font-mono">This tweet is private and/or deleted.</p>
+            </div>
+          <% } %>
+        <% }) %>
+      </div>
+    </div>
+  </body>
+</html>

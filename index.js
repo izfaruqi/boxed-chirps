@@ -5,6 +5,9 @@ const fsSync = require('fs')
 const _ = require('lodash')
 const axios = require('axios').default
 const Promise = require('bluebird')
+const { renderTemplate } = require('./export')
+
+process.env.NODE_ENV = process.pkg?.entrypoint? 'production' : process.env.NODE_ENV
 
 async function main() {
   let tweetIds = []
@@ -20,12 +23,12 @@ async function main() {
   const username = splitParentUrl[3]
   meta.url = parentUrl
 
-  const browser = await puppeteer.launch({ executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", userDataDir: './puppeteer-userdata', headless: true })
+  const browser = await puppeteer.launch({ executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", userDataDir: './puppeteer-userdata', headless: false })
   const page = await browser.newPage()
   page.setViewport({ width: 800, height: 850 })
   page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 
-  await page.goto(parentUrl)
+  await page.goto("https://twitter.com/" + username + "/status/" + splitParentUrl[5])
   await page.waitForSelector('article')
   console.log("found parent tweet")
 
@@ -156,10 +159,11 @@ async function main() {
   const outputFileName = username + '_' + splitParentUrl[5] + '_' + meta.scrape_ids_start
 
   await fs.mkdir('output/' + outputFileName)
-  await fs.writeFile('output/' + outputFileName + "/" + outputFileName + '.json', JSON.stringify({
+  const outData = {
     ...meta,
     tweet_data: tweetData
-  }))
+  }
+  await fs.writeFile('output/' + outputFileName + "/" + outputFileName + '.json', JSON.stringify(outData))
   console.log('tweet data dumped to json')
 
   console.log(mediaUrls)
@@ -178,8 +182,7 @@ async function main() {
     }), { concurrency: 6 })
   }
   console.log('media downloaded')
-
-  await browser.close()
+  await Promise.all([browser.close(), renderTemplate(outData, outputFileName)])
 }
 
 main()
