@@ -18,7 +18,7 @@
       <div class="mt-5 flex flex-col gap-3 items-stretch">
         <% tweets.forEach(tweet => {
           if(tweet.is_available){
-              let content = tweet.content.substring(tweet.display_text_range[0], tweet.display_text_range[1]).split('') 
+              let content = Array.from(tweet.content).splice(tweet.display_text_range[0], tweet.display_text_range[1]-tweet.display_text_range[0])
               tweet.mentions.forEach(mention => content.splice(mention.indices[0], mention.indices[1]-mention.indices[0], 
                 '<a class="text-blue-500" href="https://twitter.com/@' + mention.screen_name + '" rel="noreferrer noopener" target="_blank">@' + mention.screen_name + '</a>'))
               content = content.join('') %>
