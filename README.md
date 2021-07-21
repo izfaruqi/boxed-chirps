@@ -7,9 +7,11 @@ To use:
 
 2. Rename `config.json.example` to `config.json` and fill in your Twitter API bearer token (free plan is enough).
 
-3. Run
+3. Run `npm install` and then `npm run build.css`.
+
+4. Run
 ```
 node index.js https://twitter.com/username/status/1234567890
 ```
 
-4. The output will be under the `output` folder.
+5. The output will be under the `output` folder.
