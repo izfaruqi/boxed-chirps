@@ -5,7 +5,7 @@
   "private": "true",
   "main": "src/index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node src/index.js",
     "build.css": "cross-env NODE_ENV=production npx postcss ./src/templating/template.css -o ./build/templating/compiled.purged.min.css",
     "dev.build.css": "cross-env NODE_ENV=development npx postcss ./src/templating/template.css -o ./build/templating/compiled.min.css",
     "test": "echo \"Error: no test specified\" && exit 1"
