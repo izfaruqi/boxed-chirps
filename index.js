@@ -7,6 +7,7 @@ const axios = require('axios').default
 const Promise = require('bluebird')
 const { ArgumentParser } = require('argparse')
 const { renderTemplate } = require('./export')
+const db = require('./db')
 
 process.env.NODE_ENV = process.pkg?.entrypoint? 'production' : process.env.NODE_ENV
 const parser = new ArgumentParser()
@@ -23,7 +24,7 @@ if(ARGUMENTS.logout){
   login()
 } else {
   if(ARGUMENTS.no_quote){
-    scrape(ARGUMENTS.fullTweetLink)
+    scrape(ARGUMENTS.fullTweetLink).then(_ => db.destroy())
   } else {
     mainQuote()
   }
@@ -64,7 +65,9 @@ async function mainQuote(){
     const currentTweet = quotedTweets.shift()
     console.log("Scraping " + currentTweet)
     quotedTweets.push(...(await scrape(currentTweet)))
+    console.log(quotedTweets)
   } while(quotedTweets.length != 0)
+  db.destroy()
 }
 
 async function scrape(tweetLink) {
@@ -171,29 +174,42 @@ async function scrape(tweetLink) {
   const grabTweetDataFromApi = async (tweetIds, debug = false) => {
     if (debug) console.log('fetching tweet data from api')
 
-    let tweetIdsChunks = [tweetIds]
+    let tweetsFromDb = {}
+    const _twdb = await db('tweet').select(['id', 'json']).whereIn('id', tweetIds)
+    _twdb.forEach(t => tweetsFromDb[t.id] = JSON.parse(t.json))
+    tweetIds = _.difference(tweetIds, Object.keys(tweetsFromDb))
+    let tweetIdsChunks = [tweetIds]    
     if (tweetIds.length > 95) {
       tweetIdsChunks = _.chunk(tweetIds, 5)
     }
 
-    return _.merge(...(await Promise.allSettled(tweetIdsChunks.map(tweetIdChunks =>
+    const tweetsFromApi = _.merge(...(await Promise.allSettled(tweetIdsChunks.map(tweetIdChunks =>
       axios.get('https://api.twitter.com/1.1/statuses/lookup.json?id=' + encodeURIComponent(tweetIdChunks.join(',')) + "&tweet_mode=extended&map=true&include_ext_alt_text=true&trim_user=true",
         { headers: { 'Authorization': 'Bearer ' + config.twitterApiToken } }).then(res => res.data.id)
     ))).map(promise => promise._settledValueField))
+
+    return { ...tweetsFromApi, ...tweetsFromDb }
   }
 
   meta.grab_tweet_data_start = Date.now()
   const tweetData = await grabTweetDataFromApi(tweetIds, true)
   meta.grab_tweet_data_end = Date.now()
 
+  meta.user = await axios.get('https://api.twitter.com/1.1/users/show.json?screen_name=' + encodeURIComponent(username),
+   { headers: { 'Authorization': 'Bearer ' + config.twitterApiToken } }).then(res => res.data)
+
   let _firstTweet = true
   let toDelete = []
   for(const tweetId of Object.keys(tweetData)){
+    try {
+      await db('tweet').insert({ id: tweetId, json: JSON.stringify(tweetData[tweetId]), created_at: Date.now(), modified_at: Date.now()})
+    } catch (e) {
+    }
     if(_firstTweet){
       _firstTweet = false
       continue
     }
-    if(tweetData[tweetId].in_reply_to_status_id_str != parentTweetId){
+    if(tweetData[tweetId].in_reply_to_user_id_str != meta.user.id_str){
       delete tweetData[tweetId]
       toDelete.push(tweetId)
     }
@@ -229,9 +245,6 @@ async function scrape(tweetLink) {
   }).filter(x => x != null).flat()
 
   meta.media = mediaUrls
-
-  meta.user = await axios.get('https://api.twitter.com/1.1/users/show.json?screen_name=' + encodeURIComponent(username),
-   { headers: { 'Authorization': 'Bearer ' + config.twitterApiToken } }).then(res => res.data)
 
   const outputFileName = username + '_' + parentTweetId + '_' + meta.scrape_ids_start
 
