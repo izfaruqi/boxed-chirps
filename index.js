@@ -5,15 +5,59 @@ const fsSync = require('fs')
 const _ = require('lodash')
 const axios = require('axios').default
 const Promise = require('bluebird')
+const { ArgumentParser } = require('argparse')
 const { renderTemplate } = require('./export')
 
 process.env.NODE_ENV = process.pkg?.entrypoint? 'production' : process.env.NODE_ENV
+const parser = new ArgumentParser()
+parser.add_argument("fullTweetLink", { nargs: '?', type: String })
+parser.add_argument("-li", "--login", { action: 'store_true' })
+parser.add_argument("-lo", "--logout", { action: 'store_true' })
+
+const ARGUMENTS = parser.parse_args()
+
+if(ARGUMENTS.logout){
+  logout()
+} else if(ARGUMENTS.login){
+  login()
+} else {
+  main()
+}
+
+async function login(){
+  const browser = await puppeteer.launch({ executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", userDataDir: './puppeteer-userdata', headless: false })
+  const page = await browser.newPage()
+  page.setViewport({ width: 800, height: 850 })
+  page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+  await page.goto("https://twitter.com/login")
+  await page.waitForSelector('header', { timeout: 0 })
+  await page.waitForSelector('div[data-testid="SideNav_AccountSwitcher_Button"]')
+  await page.$eval('div[data-testid="SideNav_AccountSwitcher_Button"]', b => b.click())
+  await page.waitForSelector('li[data-testid="UserCell"]')
+  const userList = (await Promise.all((await page.$$('li')).map(async li => await li.$$('span')))).flat()
+  const accounts = await Promise.all(userList.map(async user => (await (await user.getProperty('textContent')).jsonValue())))
+  console.log("Logged in to: " + accounts[2])
+  await browser.close()
+}
+
+async function logout(){
+  const browser = await puppeteer.launch({ executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", userDataDir: './puppeteer-userdata', headless: true })
+  const page = await browser.newPage()
+  page.setViewport({ width: 800, height: 850 })
+  page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+  await page.goto("https://twitter.com/logout")
+  await page.waitForSelector('div[data-testid="confirmationSheetConfirm"]')
+  await page.$eval('div[data-testid="confirmationSheetConfirm"]', b => b.click())
+  await page.waitForSelector('a[href="/login"]')
+  console.log('Logged out.')
+  await browser.close()
+}
 
 async function main() {
   let tweetIds = []
   const meta = {}
   meta.scrape_ids_start = Date.now()
-  const parentUrl = process.argv[2]
+  const parentUrl = ARGUMENTS.fullTweetLink
   if (parentUrl && (parentUrl.length <= 0)) {
     console.log('no url provided')
     return
@@ -23,7 +67,7 @@ async function main() {
   const username = splitParentUrl[3]
   meta.url = parentUrl
 
-  const browser = await puppeteer.launch({ executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", userDataDir: './puppeteer-userdata', headless: false })
+  const browser = await puppeteer.launch({ executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", userDataDir: './puppeteer-userdata', headless: true })
   const page = await browser.newPage()
   page.setViewport({ width: 800, height: 850 })
   page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
@@ -108,6 +152,8 @@ async function main() {
   meta.tweetIds = tweetIds
   meta.scrape_ids_stop = Date.now()
 
+  const bc = browser.close()
+
   const grabTweetDataFromApi = async (tweetIds, debug = false) => {
     if (debug) console.log('fetching tweet data from api')
 
@@ -182,7 +228,6 @@ async function main() {
     }), { concurrency: 6 })
   }
   console.log('media downloaded')
-  await Promise.all([browser.close(), renderTemplate(outData, outputFileName)])
+  await renderTemplate(outData, outputFileName)
+  await bc
 }
-
-main()

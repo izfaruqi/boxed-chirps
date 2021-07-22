@@ -12,12 +12,16 @@
   },
   "bin": "index.js",
   "pkg": {
-    "assets": ["templating/*.ejs", "build/templating/*.css"],
+    "assets": [
+      "templating/*.ejs",
+      "build/templating/*.css"
+    ],
     "outputPath": "build/dist"
   },
   "author": "izfaruqi",
   "license": "GPL-3.0-only",
   "dependencies": {
+    "argparse": "^2.0.1",
     "axios": "^0.21.1",
     "bluebird": "^3.7.2",
     "cross-env": "^7.0.3",
