@@ -1,7 +1,7 @@
 module.exports = {
   purge: {
     content: [
-      'templating/*.ejs'
+      'src/templating/*.ejs'
     ]
   },
   darkMode: false, // or 'media' or 'class'

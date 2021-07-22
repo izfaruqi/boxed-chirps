@@ -128,3 +128,4 @@ puppeteer-userdata/
 output/
 build/
 config.json
+db.sqlite3
