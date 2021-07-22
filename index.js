@@ -77,7 +77,7 @@ async function scrape(tweetLink) {
     return
   }
   const splitParentUrl = parentUrl.split('/')
-  splitParentUrl[5] = splitParentUrl[5].match(/[0-9]+/gm)[0]
+  const parentTweetId = splitParentUrl[5].match(/[0-9]+/gm)[0]
   const username = splitParentUrl[3]
   meta.url = parentUrl
 
@@ -86,7 +86,7 @@ async function scrape(tweetLink) {
   page.setViewport({ width: 800, height: 850 })
   page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 
-  await page.goto("https://twitter.com/" + username + "/status/" + splitParentUrl[5])
+  await page.goto("https://twitter.com/" + username + "/status/" + parentTweetId)
   await page.waitForSelector('article')
   console.log("found parent tweet")
 
@@ -106,7 +106,7 @@ async function scrape(tweetLink) {
   upperTweetLinks.forEach((link, i) => (!link.startsWith('https://twitter.com/' + username) && upperLimitIdx == -1)? upperLimitIdx = i : null)
   const upperTweetIds = upperTweetLinks.filter((_, i) => !(upperLimitIdx != -1 && i >= upperLimitIdx)).map(link => link.split('/')[5])
 
-  tweetIds.push(splitParentUrl[5])
+  tweetIds.push(parentTweetId)
   tweetIds.push(...upperTweetIds)
 
   // If the upper tweets haven't encountered a thread-breaking filter and is not a single tweet, continue grabbing the lower tweets.
@@ -186,6 +186,20 @@ async function scrape(tweetLink) {
   const tweetData = await grabTweetDataFromApi(tweetIds, true)
   meta.grab_tweet_data_end = Date.now()
 
+  let _firstTweet = true
+  let toDelete = []
+  for(const tweetId of Object.keys(tweetData)){
+    if(_firstTweet){
+      _firstTweet = false
+      continue
+    }
+    if(tweetData[tweetId].in_reply_to_status_id_str != parentTweetId){
+      delete tweetData[tweetId]
+      toDelete.push(tweetId)
+    }
+  }
+  meta.tweetIds = meta.tweetIds.filter(id => !toDelete.includes(id))
+
   const quotedTweets = []
   Object.values(tweetData).forEach(tweet => tweet.is_quote_status && quotedTweets.push(tweet.quoted_status_permalink.expanded))
 
@@ -219,7 +233,7 @@ async function scrape(tweetLink) {
   meta.user = await axios.get('https://api.twitter.com/1.1/users/show.json?screen_name=' + encodeURIComponent(username),
    { headers: { 'Authorization': 'Bearer ' + config.twitterApiToken } }).then(res => res.data)
 
-  const outputFileName = username + '_' + splitParentUrl[5] + '_' + meta.scrape_ids_start
+  const outputFileName = username + '_' + parentTweetId + '_' + meta.scrape_ids_start
 
   await fs.mkdir('output/' + outputFileName)
   const outData = {
