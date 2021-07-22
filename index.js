@@ -11,6 +11,7 @@ const { renderTemplate } = require('./export')
 process.env.NODE_ENV = process.pkg?.entrypoint? 'production' : process.env.NODE_ENV
 const parser = new ArgumentParser()
 parser.add_argument("fullTweetLink", { nargs: '?', type: String })
+parser.add_argument('-nq', "--no-quote", { action: 'store_true'})
 parser.add_argument("-li", "--login", { action: 'store_true' })
 parser.add_argument("-lo", "--logout", { action: 'store_true' })
 
@@ -21,7 +22,11 @@ if(ARGUMENTS.logout){
 } else if(ARGUMENTS.login){
   login()
 } else {
-  main()
+  if(ARGUMENTS.no_quote){
+    scrape(ARGUMENTS.fullTweetLink)
+  } else {
+    mainQuote()
+  }
 }
 
 async function login(){
@@ -53,11 +58,20 @@ async function logout(){
   await browser.close()
 }
 
-async function main() {
+async function mainQuote(){
+  let quotedTweets = [ARGUMENTS.fullTweetLink]
+  do {
+    const currentTweet = quotedTweets.shift()
+    console.log("Scraping " + currentTweet)
+    quotedTweets.push(...(await scrape(currentTweet)))
+  } while(quotedTweets.length != 0)
+}
+
+async function scrape(tweetLink) {
   let tweetIds = []
   const meta = {}
   meta.scrape_ids_start = Date.now()
-  const parentUrl = ARGUMENTS.fullTweetLink
+  const parentUrl = tweetLink
   if (parentUrl && (parentUrl.length <= 0)) {
     console.log('no url provided')
     return
@@ -172,6 +186,9 @@ async function main() {
   const tweetData = await grabTweetDataFromApi(tweetIds, true)
   meta.grab_tweet_data_end = Date.now()
 
+  const quotedTweets = []
+  Object.values(tweetData).forEach(tweet => tweet.is_quote_status && quotedTweets.push(tweet.quoted_status_permalink.expanded))
+
   const mediaUrls = Object.values(tweetData).map(tweet => {
     try {
       if (tweet.extended_entities.media.length > 0) {
@@ -230,4 +247,5 @@ async function main() {
   console.log('media downloaded')
   await renderTemplate(outData, outputFileName)
   await bc
+  return quotedTweets
 }
