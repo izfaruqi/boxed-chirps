@@ -6,6 +6,8 @@ To use (from sources):
 2. Run `npm install` and `npm run build.css`
 3. Run `node src/index.js` for the first time to setup the config file and database.
 4. Fill your Twitter API token in the config file.
-5. Run `node src/index.js <full tweet url>` to start archiving! (full tweet url example: https://twitter.com/izfaruqi/status/1234567882350000)
+5. Run `node src/index.js -li` to login to a Twitter account.
+6. Run `node src/index.js <full tweet url>` to start archiving! (full tweet url example: https://twitter.com/izfaruqi/status/1234567882350000)
 
+Steps 1-5 only needs to be run once.
 You can use the `-nq` flag before the url to disable quote tweet fetching.
